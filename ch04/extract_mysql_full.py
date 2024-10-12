@@ -1,51 +1,29 @@
-import pymysql
+"""Module for extracting data from MySQL database."""
+
 import csv
-import boto3
-import configparser
+import sys
 
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-hostname = parser.get("mysql_config", "hostname")
-port = parser.get("mysql_config", "port")
-username = parser.get("mysql_config", "username")
-dbname = parser.get("mysql_config", "database")
-password = parser.get("mysql_config", "password")
+sys.path.append(".")
 
-conn = pymysql.connect(host=hostname,
-        user=username,
-        password=password,
-        db=dbname,
-        port=int(port))
+from cloud_storage import CloudStorageService
+from mysql import MySQLModel
 
-if conn is None:
-  print("Error connecting to the MySQL database")
-else:
-  print("MySQL connection established!")
 
-  m_query = "SELECT * FROM Orders;"
-local_filename = "order_extract.csv"
+M_QUERY = "SELECT * FROM Orders;"
+LOCAL_FILENAME = "order_extract.csv"
 
-m_cursor = conn.cursor()
-m_cursor.execute(m_query)
-results = m_cursor.fetchall()
+results = MySQLModel().fetch(query=M_QUERY)
 
-with open(local_filename, 'w') as fp:
-  csv_w = csv.writer(fp, delimiter='|')
-  csv_w.writerows(results)
+with open(LOCAL_FILENAME, "w", encoding="utf-8") as fp:
+    csv_w = csv.writer(fp, delimiter="|")
+    csv_w.writerows(results)
 
 fp.close()
-m_cursor.close()
-conn.close()
 
-# load the aws_boto_credentials values
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-access_key = parser.get("aws_boto_credentials", "access_key")
-secret_key = parser.get("aws_boto_credentials", "secret_key")
-bucket_name = parser.get("aws_boto_credentials", "bucket_name")
+CloudStorageService().upload_file_to_bucket(
+    bucketname="test-bucket",
+    filename=LOCAL_FILENAME,
+    destination_file_name=f"orders/{LOCAL_FILENAME}",
+)
 
-s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-
-s3_file = local_filename
-
-s3.upload_file(local_filename, bucket_name, s3_file)
+CloudStorageService().get_files_from_bucket()

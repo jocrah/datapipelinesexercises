@@ -1,59 +1,29 @@
-import psycopg2
+"""Module for extracting data from PostgreSQL database."""
+
 import csv
-import boto3
-import configparser
+import sys
 
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-dbname = parser.get("postgres_config", "database")
-user = parser.get("postgres_config", "username")
-password = parser.get("postgres_config",
-    "password")
-host = parser.get("postgres_config", "host")
-port = parser.get("postgres_config", "port")
+sys.path.append(".")
 
-conn = psycopg2.connect(
-        "dbname=" + dbname
-        + " user=" + user
-        + " password=" + password
-        + " host=" + host,
-        port = port)
+from cloud_storage import CloudStorageService
+from postgresql import PostgreSQLModel
 
-m_query = "SELECT * FROM Orders;"
-local_filename = "order_extract.csv"
 
-m_cursor = conn.cursor()
-m_cursor.execute(m_query)
-results = m_cursor.fetchall()
+M_QUERY = "SELECT * FROM Orders;"
+LOCAL_FILENAME = "order_extract.csv"
 
-with open(local_filename, 'w') as fp:
-  csv_w = csv.writer(fp, delimiter='|')
-  csv_w.writerows(results)
+results = PostgreSQLModel().fetch(query=M_QUERY)
+
+with open(LOCAL_FILENAME, "w", encoding="utf-8") as fp:
+    csv_w = csv.writer(fp, delimiter="|")
+    csv_w.writerows(results)
 
 fp.close()
-m_cursor.close()
-conn.close()
 
-# load the aws_boto_credentials values
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-access_key = parser.get(
-                "aws_boto_credentials",
-                "access_key")
-secret_key = parser.get(
-                "aws_boto_credentials",
-                "secret_key")
-bucket_name = parser.get(
-                "aws_boto_credentials",
-                "bucket_name")
+CloudStorageService().upload_file_to_bucket(
+    bucketname="test-bucket",
+    filename=LOCAL_FILENAME,
+    destination_file_name=f"orders/{LOCAL_FILENAME}",
+)
 
-s3 = boto3.client(
-        's3',
-        aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-
-s3_file = local_filename
-
-s3.upload_file(
-    local_filename,
-    bucket_name,
-    s3_file)
+CloudStorageService().get_files_from_bucket()

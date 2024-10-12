@@ -1,0 +1,4 @@
+configparser
+pymysql
+google-cloud-storage
+psycopg2-binary
