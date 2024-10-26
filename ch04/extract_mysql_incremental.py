@@ -12,7 +12,7 @@ from mysql import MySQLModel
 M_QUERY = "SELECT * FROM Orders WHERE LastUpdated > %s;"
 LOCAL_FILENAME = "order_extract.csv"
 
-LAST_UPDATED = "1900-01-01"
+LAST_UPDATED = "2020-07-11"
 
 results = MySQLModel().fetch(query=M_QUERY, args=(LAST_UPDATED,))
 

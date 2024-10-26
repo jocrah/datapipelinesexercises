@@ -16,3 +16,10 @@ POSTGRES_PORT = parser.get("postgres_config", "port")
 POSTGRES_USERNAME = parser.get("postgres_config", "username")
 POSTGRES_DBNAME = parser.get("postgres_config", "database")
 POSTGRES_PASSWORD = parser.get("postgres_config", "password")
+
+
+MONGO_HOSTNAME = parser.get("mongo_config", "hostname")
+MONGO_USERNAME = parser.get("mongo_config", "username")
+MONGO_PASSWORD = parser.get("mongo_config", "password")
+MONGO_DBNAME = parser.get("mongo_config", "database")
+MONGO_COLLECTION = parser.get("mongo_config", "collection")

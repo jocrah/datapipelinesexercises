@@ -1,41 +1,24 @@
-from pymongo import MongoClient
 import csv
-import boto3
 import datetime
 from datetime import timedelta
-import configparser
+import sys
 
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-hostname = parser.get("mongo_config", "hostname")
-username = parser.get("mongo_config", "username")
-password = parser.get("mongo_config", "password")
-database_name = parser.get("mongo_config",
-                    "database")
-collection_name = parser.get("mongo_config",
-                    "collection")
+sys.path.append(".")
+from cloud_storage import CloudStorageService
+from mongodb import MongoDBModel
 
-mongo_client = MongoClient(
-                "mongodb+srv://" + username
-                + ":" + password
-                + "@" + hostname
-                + "/" + database_name
-                + "?retryWrites=true&"
-                + "w=majority&ssl=true&"
-                + "ssl_cert_reqs=CERT_NONE")
 
-# connect to the db where the collection resides
-mongo_db = mongo_client[database_name]
+start_date = datetime.datetime.today() + timedelta(days=-1)
+end_date = start_date + timedelta(days=1)
 
-# choose the collection to query documents from
-mongo_collection = mongo_db[collection_name]
+mongo_query = {
+    "$and": [
+        {"event_timestamp": {"$gte": start_date}},
+        {"event_timestamp": {"$lt": end_date}},
+    ]
+}
 
-start_date = datetime.datetime.today() + timedelta(days = -1)
-end_date = start_date + timedelta(days = 1 )
-
-mongo_query = { "$and":[{"event_timestamp" : { "$gte": start_date }}, {"event_timestamp" : { "$lt": end_date }}] }
-
-event_docs = mongo_collection.find(mongo_query, batch_size=3000)
+event_docs = MongoDBModel().fetch(query=mongo_query)
 
 # create a blank list to store the results
 all_events = []
@@ -44,8 +27,7 @@ all_events = []
 for doc in event_docs:
     # Include default values
     event_id = str(doc.get("event_id", -1))
-    event_timestamp = doc.get(
-                        "event_timestamp", None)
+    event_timestamp = doc.get("event_timestamp", None)
     event_name = doc.get("event_name", None)
 
     # add all the event properties into a list
@@ -59,26 +41,16 @@ for doc in event_docs:
 
 export_file = "export_file.csv"
 
-with open(export_file, 'w') as fp:
-	csvw = csv.writer(fp, delimiter='|')
-	csvw.writerows(all_events)
+with open(export_file, "w", encoding="utf-8") as fp:
+    csvw = csv.writer(fp, delimiter="|")
+    csvw.writerows(all_events)
 
 fp.close()
 
-# load the aws_boto_credentials values
-parser = configparser.ConfigParser()
-parser.read("pipeline.conf")
-access_key = parser.get("aws_boto_credentials",
-                "access_key")
-secret_key = parser.get("aws_boto_credentials",
-                "secret_key")
-bucket_name = parser.get("aws_boto_credentials",
-                "bucket_name")
+CloudStorageService().upload_file_to_bucket(
+    bucketname="test-bucket",
+    filename=export_file,
+    destination_file_name=f"events/{export_file}",
+)
 
-s3 = boto3.client('s3',
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key)
-
-s3_file = export_file
-
-s3.upload_file(export_file, bucket_name, s3_file)
+CloudStorageService().get_files_from_bucket()
